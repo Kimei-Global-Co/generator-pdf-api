@@ -1,0 +1,12 @@
+[
+  {
+    "ContainingType": "PdfGeneratorApi.Controllers.PdfController",
+    "Method": "CreatePdf",
+    "RelativePath": "api/Pdf/create",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  }
+]
