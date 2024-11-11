@@ -9,6 +9,8 @@ using iText.Layout.Borders;
 using iText.IO.Font;
 using iText.IO.Image;
 using iText.Kernel.Font;
+using Org.BouncyCastle.Asn1.Ocsp;
+using PdfGeneratorApi.Models;
 
 namespace PdfGeneratorApi.Controllers
 {
@@ -17,7 +19,7 @@ namespace PdfGeneratorApi.Controllers
     public class PdfController : ControllerBase
     {
         [HttpPost("create")]
-        public IActionResult CreatePdf()
+        public IActionResult CreatePdf([FromBody] QuotationRequest request)
         {
             // Sử dụng MemoryStream để lưu trữ PDF trong bộ nhớ
             using (MemoryStream memoryStream = new MemoryStream())
@@ -49,11 +51,11 @@ namespace PdfGeneratorApi.Controllers
 
                 // Ô bên trái cho thông tin công ty
                 Cell textInfoCell = new Cell().SetBorder(Border.NO_BORDER);
-                textInfoCell.Add(new Paragraph("oliu@kimei.vn workshop default").SetFontSize(10).SetBold());
-                textInfoCell.Add(new Paragraph("Thuộc chuỗi: workshop default\nĐịa chỉ: __\nSố điện thoại: 0868781111\nWebsite: __")
-                    .SetFontSize(10));
-                textInfoCell.Add(new Paragraph("Số tài khoản: 19036449572012\nNgân hàng: TCB\nChủ tài khoản: 19036449572012")
-                    .SetFontSize(10));
+                textInfoCell.Add(new Paragraph($"{request.CompanyEmail}").SetFontSize(10).SetBold());
+                textInfoCell.Add(new Paragraph($"Thuộc chuỗi: {request.BelongChain}").SetFontSize(10));
+                textInfoCell.Add(new Paragraph($"Địa chỉ: {request.CompanyAddress}\nSố điện thoại: {request.CompanyPhone}").SetFontSize(10));
+                textInfoCell.Add(new Paragraph($"Website: {request.Website}").SetFontSize(10));
+                textInfoCell.Add(new Paragraph($"Số tài khoản: {request.AccountNumber}\nNgân hàng: {request.BankName}\nChủ tài khoản: {request.AccountHolder}").SetFontSize(10));
                 companyInfoTable.AddCell(textInfoCell);
 
                 // Ô bên phải cho QR code
@@ -82,19 +84,19 @@ namespace PdfGeneratorApi.Controllers
                 Table dateTable = new Table(3).SetWidth(UnitValue.CreatePercentValue(100));
 
                 // Ô đầu tiên (bên trái)
-                dateTable.AddCell(new Cell().Add(new Paragraph("Mã phiếu tiếp nhận: PTN00000000002"))
+                dateTable.AddCell(new Cell().Add(new Paragraph($"Mã phiếu tiếp nhận: {request.InvoiceNumber}"))
                     .SetBorder(Border.NO_BORDER)
                     .SetFontSize(10)
                     .SetTextAlignment(TextAlignment.LEFT));
 
                 // Ô thứ hai (ở giữa)
-                dateTable.AddCell(new Cell().Add(new Paragraph("Ngày nhận xe: 17/07/2024"))
+                dateTable.AddCell(new Cell().Add(new Paragraph($"Ngày nhận xe: {request.ReceiveDate}"))
                     .SetBorder(Border.NO_BORDER)
                     .SetFontSize(10)
                     .SetTextAlignment(TextAlignment.CENTER));
 
                 // Ô thứ ba (bên phải)
-                dateTable.AddCell(new Cell().Add(new Paragraph("Ngày lập phiếu báo giá: 17/07/2024"))
+                dateTable.AddCell(new Cell().Add(new Paragraph($"Ngày lập phiếu báo giá: {request.IssueDate}"))
                     .SetBorder(Border.NO_BORDER)
                     .SetFontSize(10)
                     .SetTextAlignment(TextAlignment.RIGHT));
@@ -109,13 +111,15 @@ namespace PdfGeneratorApi.Controllers
                 // Thông tin xe (bên trái)
                 Cell carInfoCell = new Cell().SetBorder(Border.NO_BORDER);
                 carInfoCell.Add(new Paragraph("1. Thông tin xe").SetBold());
-                carInfoCell.Add(new Paragraph("Biển số xe: 30A-39969\nSố VIN: RLMGF4JX3EV005900\nHãng xe: TOYOTA\nLoại xe: Lexus\nSố km tiếp nhận: __\nNgày xuất xe dự kiến: 18/07/2024").SetFontSize(10));
+                carInfoCell.Add(new Paragraph($"Biển số xe: {request.CarLicensePlate}\nSố VIN: {request.CarVIN}\nHãng xe: {request.CarBrand}\nLoại xe: {request.CarType}\nSố km tiếp nhận: __\nNgày xuất xe dự kiến: {request.IssueDate}")
+                    .SetFontSize(10));
                 infoTable.AddCell(carInfoCell);
 
                 // Thông tin khách hàng (bên phải)
                 Cell customerInfoCell = new Cell().SetBorder(Border.NO_BORDER);
                 customerInfoCell.Add(new Paragraph("2. Thông tin khách hàng").SetBold());
-                customerInfoCell.Add(new Paragraph("Khách hàng: oanh tests\nSố điện thoại: 0868789122\nEmail: admin2@kimei.vn\nMã số thuế: __\nĐịa chỉ: dong me1234").SetFontSize(10));
+                customerInfoCell.Add(new Paragraph($"Khách hàng: {request.CustomerName}\nSố điện thoại: {request.CustomerPhone}\nEmail: {request.CustomerEmail}\nĐịa chỉ: {request.CustomerAddress}")
+                    .SetFontSize(10));
                 infoTable.AddCell(customerInfoCell);
 
                 document.Add(infoTable);
@@ -126,17 +130,27 @@ namespace PdfGeneratorApi.Controllers
                 // Bảng nhân công
                 document.Add(new Paragraph("Nhân công").SetBold().SetFontSize(10));
                 Table laborTable = new Table(new float[] { 3, 1, 1, 2, 1, 1, 1 }).SetWidth(UnitValue.CreatePercentValue(100));
-                laborTable.AddHeaderCell("Tên nhân công").AddHeaderCell("Đơn vị").AddHeaderCell("Số lượng")
-                    .AddHeaderCell("Thành tiền").AddHeaderCell("Chiết khấu").AddHeaderCell("Thuế").AddHeaderCell("Ghi chú");
-                laborTable.AddCell("Thay dầu").AddCell("Công").AddCell("2").AddCell("200,000").AddCell("0").AddCell("0%").AddCell("");
+                laborTable.AddHeaderCell("Tên nhân công").AddHeaderCell("Đơn vị").AddHeaderCell("Số lượng").AddHeaderCell("Thành tiền").AddHeaderCell("Chiết khấu").AddHeaderCell("Thuế").AddHeaderCell("Ghi chú");
+
+                decimal laborTotal = 0;
+                foreach (var item in request.LaborItems)
+                {
+                    laborTable.AddCell(item.Name).AddCell(item.Unit).AddCell(item.Quantity.ToString()).AddCell(item.Price.ToString("N0")).AddCell(item.Discount).AddCell(item.Tax).AddCell(item.Notes);
+                    laborTotal += item.Price * item.Quantity;
+                }
                 document.Add(laborTable);
 
                 // Bảng sản phẩm/phụ tùng
                 document.Add(new Paragraph("Sản phẩm/ phụ tùng").SetBold().SetFontSize(10));
                 Table productTable = new Table(new float[] { 3, 1, 1, 2, 1, 1, 1 }).SetWidth(UnitValue.CreatePercentValue(100));
-                productTable.AddHeaderCell("Tên sản phẩm").AddHeaderCell("Đơn vị").AddHeaderCell("Số lượng")
-                    .AddHeaderCell("Thành tiền").AddHeaderCell("Chiết khấu").AddHeaderCell("Thuế").AddHeaderCell("Ghi chú");
-                productTable.AddCell("Dầu Liqui").AddCell("Lọ").AddCell("2").AddCell("200,000").AddCell("0").AddCell("0%").AddCell("");
+                productTable.AddHeaderCell("Tên sản phẩm").AddHeaderCell("Đơn vị").AddHeaderCell("Số lượng").AddHeaderCell("Thành tiền").AddHeaderCell("Chiết khấu").AddHeaderCell("Thuế").AddHeaderCell("Ghi chú");
+
+                decimal productTotal = 0;
+                foreach (var item in request.ProductItems)
+                {
+                    productTable.AddCell(item.Name).AddCell(item.Unit).AddCell(item.Quantity.ToString()).AddCell(item.Price.ToString("N0")).AddCell(item.Discount).AddCell(item.Tax).AddCell(item.Notes);
+                    productTotal += item.Price * item.Quantity;
+                }
                 document.Add(productTable);
 
                 // Bố cục cho phần cuối cùng
@@ -150,22 +164,29 @@ namespace PdfGeneratorApi.Controllers
                 // Ô bên phải cho các chi tiết thanh toán
                 Cell rightCell = new Cell().SetBorder(Border.NO_BORDER);
 
+                // Tính toán các giá trị chi tiết thanh toán
+                int totalQuantity = request.LaborItems.Sum(x => x.Quantity) + request.ProductItems.Sum(x => x.Quantity);
+                decimal totalAmount = request.LaborItems.Sum(x => x.Price * x.Quantity) + request.ProductItems.Sum(x => x.Price * x.Quantity);
+                decimal discountAmount = 0; // Thay đổi nếu bạn có chiết khấu
+                decimal vatAmount = 0; // Thay đổi nếu có VAT
+                decimal finalAmount = totalAmount - discountAmount + vatAmount;
+
                 // Thêm thông tin chi tiết thanh toán vào ô bên phải
                 Table paymentTable = new Table(new float[] { 3, 2 }).SetWidth(UnitValue.CreatePercentValue(100));
                 paymentTable.AddCell(new Cell().Add(new Paragraph("Số lượng").SetFontSize(10).SetBold()).SetBorder(Border.NO_BORDER));
-                paymentTable.AddCell(new Cell().Add(new Paragraph("4").SetFontSize(10)).SetBorder(Border.NO_BORDER));
+                paymentTable.AddCell(new Cell().Add(new Paragraph($"{totalQuantity}").SetFontSize(10)).SetBorder(Border.NO_BORDER));
 
                 paymentTable.AddCell(new Cell().Add(new Paragraph("Tổng cộng").SetFontSize(10).SetBold()).SetBorder(Border.NO_BORDER));
-                paymentTable.AddCell(new Cell().Add(new Paragraph("400,000 VNĐ").SetFontSize(10)).SetBorder(Border.NO_BORDER));
+                paymentTable.AddCell(new Cell().Add(new Paragraph($"{totalAmount:N0} VNĐ").SetFontSize(10)).SetBorder(Border.NO_BORDER));
 
                 paymentTable.AddCell(new Cell().Add(new Paragraph("Chiết khấu").SetFontSize(10).SetBold()).SetBorder(Border.NO_BORDER));
-                paymentTable.AddCell(new Cell().Add(new Paragraph("0 VNĐ").SetFontSize(10)).SetBorder(Border.NO_BORDER));
+                paymentTable.AddCell(new Cell().Add(new Paragraph($"{discountAmount:N0} VNĐ").SetFontSize(10)).SetBorder(Border.NO_BORDER));
 
                 paymentTable.AddCell(new Cell().Add(new Paragraph("Thuế VAT").SetFontSize(10).SetBold()).SetBorder(Border.NO_BORDER));
-                paymentTable.AddCell(new Cell().Add(new Paragraph("0 VNĐ").SetFontSize(10)).SetBorder(Border.NO_BORDER));
+                paymentTable.AddCell(new Cell().Add(new Paragraph($"{vatAmount:N0} VNĐ").SetFontSize(10)).SetBorder(Border.NO_BORDER));
 
                 paymentTable.AddCell(new Cell().Add(new Paragraph("Tổng thanh toán").SetFontSize(10).SetBold()).SetBorder(Border.NO_BORDER));
-                paymentTable.AddCell(new Cell().Add(new Paragraph("400,000 VNĐ").SetFontSize(10).SetFontColor(DeviceRgb.BLUE).SetBold()).SetBorder(Border.NO_BORDER));
+                paymentTable.AddCell(new Cell().Add(new Paragraph($"{finalAmount:N0} VNĐ").SetFontSize(10).SetFontColor(DeviceRgb.BLUE).SetBold()).SetBorder(Border.NO_BORDER));
 
                 // Thêm bảng chi tiết thanh toán vào ô bên phải
                 rightCell.Add(paymentTable);
