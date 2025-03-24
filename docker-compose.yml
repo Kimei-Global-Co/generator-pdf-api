@@ -1,0 +1,18 @@
+﻿version: '3.8'
+
+services:
+  pdf-generator-api:
+    image: pdf-generator-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pdf-generator-api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    # Nếu dùng HTTPS thì mở thêm:
+    # - ASPNETCORE_URLS=https://+:443;http://+:80
+    # volumes:
+    #   - ./logs:/app/logs

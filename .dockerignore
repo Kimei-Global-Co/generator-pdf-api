@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+*.suo
+publish/
+publish.rar
+Dockerfile
+*.http

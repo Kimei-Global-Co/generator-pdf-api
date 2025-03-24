@@ -78,3 +78,4 @@ C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\pub
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\publish\appsettings.json
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\publish\PdfGeneratorApi.deps.json
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\publish\PdfGeneratorApi.runtimeconfig.json
+C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\obj\Debug\net8.0\PdfGeneratorApi.sourcelink.json
