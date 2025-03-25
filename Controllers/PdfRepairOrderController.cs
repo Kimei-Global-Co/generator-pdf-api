@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// Controllers/PdfRepairOrderController.cs
+using Microsoft.AspNetCore.Mvc;
 using iText.Kernel.Pdf;
 using iText.Layout;
 using iText.Layout.Element;
@@ -6,10 +7,10 @@ using iText.Layout.Properties;
 using iText.Kernel.Colors;
 using iText.Kernel.Font;
 using iText.IO.Font;
-using iText.IO.Image;
-using System.IO;
+using PdfGeneratorApi.Models;
 using System;
-using iText.Kernel.Pdf.Canvas.Draw;
+using System.IO;
+using System.Collections.Generic;
 using iText.Layout.Borders;
 
 namespace PdfGeneratorApi.Controllers
@@ -19,24 +20,16 @@ namespace PdfGeneratorApi.Controllers
     public class PdfRepairOrderController : ControllerBase
     {
         private readonly string _fontPath;
-        private readonly string _logoPath;
 
         public PdfRepairOrderController()
         {
-            // Đường dẫn đến các file trong wwwroot/assets
             _fontPath = Path.Combine(AppContext.BaseDirectory, "assets", "NotoSans-Regular.ttf");
-            _logoPath = Path.Combine(AppContext.BaseDirectory, "assets", "logo.png");
-
-            // Kiểm tra file tồn tại
             if (!System.IO.File.Exists(_fontPath))
-                throw new FileNotFoundException($"Không tìm thấy file font tại {_fontPath}");
-
-            if (!System.IO.File.Exists(_logoPath))
-                throw new FileNotFoundException($"Không tìm thấy file logo tại {_logoPath}");
+                throw new FileNotFoundException($"Font file not found at {_fontPath}");
         }
 
-        [HttpGet("generate")]
-        public IActionResult GeneratePdf()
+        [HttpPost("generate")]
+        public IActionResult GenerateRepairOrderPdf([FromBody] RepairOrderRequest request)
         {
             MemoryStream stream = new MemoryStream();
             PdfWriter writer = null;
@@ -45,80 +38,67 @@ namespace PdfGeneratorApi.Controllers
 
             try
             {
-                // Cấu hình PDF Writer không tự động đóng stream
+                // 1. Initialize PDF
                 writer = new PdfWriter(stream);
-                writer.SetCloseStream(false); // Tách thành dòng riêng
-
+                writer.SetCloseStream(false);
                 pdf = new PdfDocument(writer);
                 document = new Document(pdf);
 
-                // Tải font và logo
+                // 2. Load fonts
                 PdfFont font = PdfFontFactory.CreateFont(_fontPath, PdfEncodings.IDENTITY_H);
-                Image logo = new Image(ImageDataFactory.Create(_logoPath))
-                    .SetWidth(100)
-                    .SetAutoScale(true);
+                PdfFont boldFont = PdfFontFactory.CreateFont(_fontPath, PdfEncodings.IDENTITY_H);
 
-                // Thiết lập font và margin cho toàn bộ tài liệu
-                document.SetFont(font);
-                document.SetMargins(30, 30, 30, 30);
+                // Colors
+                Color primaryColor = new DeviceRgb(59, 89, 152);
+                Color lightGray = new DeviceRgb(240, 240, 240);
 
-                /* ===== TẠO NỘI DUNG PDF ===== */
+                /* ===== PART 1: WORKSHOP HEADER ===== */
+                CreateWorkshopHeader(document, request.RepairOrderWorkshopInfo, boldFont, font, primaryColor);
 
-                // 1. Header với logo
-                var headerTable = new Table(2).UseAllAvailableWidth();
-                headerTable.AddCell(new Cell().Add(logo).SetBorder(Border.NO_BORDER));
-                headerTable.AddCell(new Cell()
-                    .Add(new Paragraph("CÔNG TY DỊCH VỤ Ô TÔ")
-                    .SetFontSize(16)
-                    .SetBold()
-                    .SetTextAlignment(TextAlignment.RIGHT))
-                    .SetBorder(Border.NO_BORDER));
-                document.Add(headerTable);
-
-                // 2. Tiêu đề chính
-                document.Add(new Paragraph("MẪU IN LỆNH SỬA CHỮA")
-                    .SetTextAlignment(TextAlignment.CENTER)
+                /* ===== PART 2: REPAIR ORDER TITLE ===== */
+                document.Add(new Paragraph(request.RepairOrderInfo.Name)
+                    .SetFont(boldFont)
                     .SetFontSize(18)
-                    .SetBold()
-                    .SetMarginTop(15));
+                    .SetFontColor(primaryColor)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetMarginTop(15)
+                    .SetMarginBottom(20));
 
-                // 3. Thông tin chung
-                document.Add(CreateInfoTable(font));
+                /* ===== PART 3: BASIC INFO SECTION ===== */
+                CreateBasicInfoSection(document, request.RepairOrderInfo, font, boldFont);
 
-                // 4. Thông tin xe
-                document.Add(CreateSectionTitle("1. THÔNG TIN XE", font));
-                document.Add(CreateVehicleInfoTable(font));
+                /* ===== PART 4: VEHICLE INFORMATION ===== */
+                //CreateVehicleInfoSection(document, request.RepairOrderCarInfo, font, boldFont, primaryColor);
 
-                // 5. Thông tin khách hàng
-                document.Add(CreateSectionTitle("2. THÔNG TIN KHÁCH HÀNG", font));
-                document.Add(CreateCustomerInfoTable(font));
+                ///* ===== PART 5: CUSTOMER INFORMATION ===== */
+                //CreateCustomerInfoSection(document, request.RepairOrderCustomerInfo, font, boldFont, primaryColor);
 
-                // 6. Nhân công
-                document.Add(CreateSectionTitle("3. NHÂN CÔNG", font));
-                document.Add(CreateLaborTable(font));
+                CreateVehicleAndCustomerInfoSection(
+                    document,
+                    request.RepairOrderCarInfo,
+                    request.RepairOrderCustomerInfo,
+                    font,
+                    boldFont,
+                    primaryColor
+                );
 
-                // 7. Ghi chú và chữ ký
-                document.Add(new Paragraph("GHI CHÚ").SetBold().SetMarginTop(15));
-                document.Add(new Paragraph("Vui lòng kiểm tra kỹ thông tin trước khi ký xác nhận"));
-                document.Add(CreateSignatureSection(font));
+                /* ===== PART 6: REPAIR LABORS SECTION ===== */
+                CreateRepairLaborsSection(document, request.RepairOrderLabors, font, boldFont, primaryColor, lightGray);
 
-                /* ===== HOÀN TẤT TÀI LIỆU ===== */
+                /* ===== PART 7: FOOTER SECTION ===== */
+                CreateFooterSection(document, request.RepairOrderInfo, request.RepairOrderLabors, font, boldFont);
 
-                // Đóng document trước khi đọc stream
+                /* ===== FINALIZE ===== */
                 document.Close();
-
-                // Reset vị trí stream
                 stream.Seek(0, SeekOrigin.Begin);
 
-                // Trả về file PDF
                 return new FileStreamResult(stream, "application/pdf")
                 {
-                    FileDownloadName = $"Lenh_sua_chua_{DateTime.Now:yyyyMMddHHmmss}.pdf"
+                    FileDownloadName = $"Phieu_sua_chua_{DateTime.Now:yyyyMMddHHmmss}.pdf"
                 };
             }
             catch (Exception ex)
             {
-                // Đảm bảo đóng tất cả tài nguyên nếu có lỗi
                 document?.Close();
                 pdf?.Close();
                 writer?.Close();
@@ -127,182 +107,331 @@ namespace PdfGeneratorApi.Controllers
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = "Lỗi khi tạo PDF",
+                    message = "Error generating repair order",
                     error = ex.Message
                 });
             }
         }
 
-        private Table CreateInfoTable(PdfFont font)
+        #region Helper Methods
+
+        private void CreateWorkshopHeader(Document document, RepairOrderWorkshopInfo workshop, PdfFont boldFont, PdfFont font, Color primaryColor)
         {
-            var table = new Table(new float[] { 2, 3 }).UseAllAvailableWidth();
+            document.Add(new Paragraph(workshop.Name)
+                .SetFont(boldFont)
+                .SetFontSize(16)
+                .SetFontColor(primaryColor)
+                .SetMarginBottom(5));
 
-            AddTableCell(table, "Mã phiếu bảo hành:", "PRO526251 (3m/6h)", font);
-            AddTableCell(table, "Ngày lập lệnh:", DateTime.Now.ToString("dd/MM/yyyy"), font);
-            AddTableCell(table, "Ngày nhận xe:", DateTime.Now.ToString("dd/MM/yyyy"), font);
+            var companyInfo = new List<string>
+            {
+                $"Địa chỉ: {workshop.Address}",
+                $"Chi nhánh: {workshop.Chain}",
+                $"Điện thoại: {workshop.Phone}",
+                $"Website: {workshop.Website}",
+                $"Tài khoản: {workshop.BankInfo}"
+            };
 
-            return table.SetMarginTop(15);
+            foreach (var line in companyInfo)
+            {
+                document.Add(new Paragraph(line)
+                    .SetFont(font)
+                    .SetFontSize(10)
+                    .SetMarginBottom(3));
+            }
+
+            //document.Add(new LineSeparator(new SolidBorder(1f))
+            //    .SetMarginTop(10)
+            //    .SetMarginBottom(15));
         }
 
-        private Table CreateVehicleInfoTable(PdfFont font)
+        private void CreateBasicInfoSection(Document document, RepairOrderInfo orderInfo, PdfFont font, PdfFont boldFont)
         {
-            var table = new Table(new float[] { 2, 3 }).UseAllAvailableWidth();
-
-            AddTableCell(table, "Biển số xe:", "16K2-355.6688", font);
-            AddTableCell(table, "Số VIN:", "2354255", font);
-            AddTableCell(table, "Hãng xe:", "Toyota Camry", font);
-            AddTableCell(table, "Loại xe:", "Sedan", font);
-            AddTableCell(table, "Số km tiếp nhận:", "83.566 km", font);
-            AddTableCell(table, "Ngày xuất xe dự kiến:", DateTime.Now.AddDays(3).ToString("dd/MM/yyyy"), font);
-            AddTableCell(table, "Ghi chú:", "Xe có bảo hành chính hãng", font);
-
-            return table.SetMarginTop(10);
-        }
-
-        private Table CreateCustomerInfoTable(PdfFont font)
-        {
-            var table = new Table(new float[] { 2, 3 }).UseAllAvailableWidth();
-
-            AddTableCell(table, "Khách hàng:", "Nguyễn Ngọc Tú", font);
-            AddTableCell(table, "Số điện thoại:", "034.458.3249", font);
-            AddTableCell(table, "Email:", "ngocnguyen@gmail.com", font);
-            AddTableCell(table, "Mã số thuế:", "0353259752", font);
-            AddTableCell(table, "Địa chỉ:", "Ngõ 12, Láng Hạ, Thành Công, Ba Đình, Hà Nội", font);
-
-            return table.SetMarginTop(10);
-        }
-
-        private Table CreateLaborTable(PdfFont font)
-        {
-            var table = new Table(UnitValue.CreatePercentArray(new float[] { 5, 20, 10, 10, 5, 10, 15, 15, 10 }))
+            var infoTable = new Table(new float[] { 2, 3, 2, 3 })
                 .UseAllAvailableWidth()
-                .SetMarginTop(10);
+                .SetMarginBottom(20)
+                .SetBorder(Border.NO_BORDER);
 
-            // Header
-            AddTableHeaderCell(table, "STT", font);
-            AddTableHeaderCell(table, "Mô tả công việc", font);
-            AddTableHeaderCell(table, "Mã công việc", font);
-            AddTableHeaderCell(table, "Loại", font);
-            AddTableHeaderCell(table, "SL", font);
-            AddTableHeaderCell(table, "Đơn vị", font);
-            AddTableHeaderCell(table, "Ghi chú", font);
-            AddTableHeaderCell(table, "Kỹ thuật viên", font);
-            AddTableHeaderCell(table, "Ngày hoàn thành", font);
+            // Dòng 1: Mã phiếu báo giá và Cố vấn dịch vụ
+            infoTable.AddCell(CreateInfoCell("Mã phiếu báo giá:", boldFont));
+            infoTable.AddCell(CreateInfoCell(orderInfo.QuotationCode, font));
+            infoTable.AddCell(CreateInfoCell("Cố vấn dịch vụ:", boldFont));
+            infoTable.AddCell(CreateInfoCell(orderInfo.ServiceAdvisor, font));
 
-            // Cấp 1: Công việc chính
-            AddMainJobRow(table, "Q1", "VỆ SINH HỆ THỐNG ĐIỀU HÒA", font);
+            // Dòng 2: Ngày lập lệnh và Quản đốc
+            infoTable.AddCell(CreateInfoCell("Ngày lập lệnh:", boldFont));
+            infoTable.AddCell(CreateInfoCell(orderInfo.OrderDate, font));
+            infoTable.AddCell(CreateInfoCell("Quản đốc:", boldFont));
+            infoTable.AddCell(CreateInfoCell(orderInfo.Manager, font));
 
-            // Cấp 2: Các công việc con (thụt lề)
-            AddSubJobRow(table, "", "Vệ sinh dàn nóng", "VS-DN", "Vệ sinh", "1", "Cái", "Dùng dung dịch chuyên dụng", "Nguyễn Văn A", "25/06/2024", font);
-            AddSubJobRow(table, "", "Vệ sinh dàn lạnh", "VS-DL", "Vệ sinh", "1", "Cái", "Vệ sinh cabin", "Trần Văn B", "25/06/2024", font);
-            AddSubJobRow(table, "", "Thay lọc gió", "TLG", "Thay thế", "1", "Cái", "Lọc gió than hoạt tính", "Lê Thị C", "25/06/2024", font);
+            // Dòng 3: Ngày nhận xe và Thời gian dự kiến hoàn thành
+            infoTable.AddCell(CreateInfoCell("Ngày nhận xe:", boldFont));
+            infoTable.AddCell(CreateInfoCell(orderInfo.DateOfVehicleReceipt, font));
+            infoTable.AddCell(CreateInfoCell("Thời gian dự kiến hoàn thành:", boldFont));
+            infoTable.AddCell(CreateInfoCell(orderInfo.EstCompletionTime, font));
 
-            // Cấp 1: Công việc chính khác
-            AddMainJobRow(table, "Q2", "BẢO DƯỠNG ĐỘNG CƠ", font);
-
-            // Cấp 2: Các công việc con
-            AddSubJobRow(table, "", "Thay nhớt động cơ", "TN", "Bảo dưỡng", "1", "Lần", "Nhớt Total 5W30", "Phạm Văn D", "26/06/2024", font);
-            AddSubJobRow(table, "", "Thay lọc nhớt", "TLN", "Thay thế", "1", "Cái", "Lọc nhớt chính hãng", "Nguyễn Thị E", "26/06/2024", font);
-
-            return table;
+            document.Add(infoTable);
         }
 
-        private void AddMainJobRow(Table table, string stt, string jobName, PdfFont font)
+        private void CreateVehicleAndCustomerInfoSection(Document document, RepairOrderCarInfo car, RepairOrderCustomerInfo customer, PdfFont font, PdfFont boldFont, Color primaryColor)
         {
-            // Tạo cell trải dài 9 cột
-            Cell mainJobCell = new Cell(1, 9)
-                .Add(new Paragraph(jobName).SetFont(font).SetBold())
-                .SetBackgroundColor(new DeviceRgb(230, 230, 230))
-                .SetPaddingLeft(10);
+            // Tạo bảng chứa 2 cột song song
+            var twoColTable = new Table(new float[] { 1, 1 })
+                .UseAllAvailableWidth()
+                .SetMarginBottom(20)
+                .SetBorder(Border.NO_BORDER);
 
-            table.AddCell(mainJobCell);
-        }
+            /* ===== CỘT THÔNG TIN XE ===== */
+            var vehicleCell = new Cell()
+                .SetBorder(Border.NO_BORDER)
+                .SetPaddingRight(15);
 
-        private void AddSubJobRow(Table table, string stt, string desc, string code, string type,
-                                 string qty, string unit, string note, string tech, string date, PdfFont font)
-        {
-            // STT (để trống hoặc có thể thêm ký tự con)
-            table.AddCell(new Cell().Add(new Paragraph(stt).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-
-            // Mô tả công việc (thụt lề)
-            table.AddCell(new Cell().Add(new Paragraph(desc).SetFont(font)).SetPaddingLeft(20));
-
-            // Các cell còn lại
-            table.AddCell(new Cell().Add(new Paragraph(code).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-            table.AddCell(new Cell().Add(new Paragraph(type).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(qty).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-            table.AddCell(new Cell().Add(new Paragraph(unit).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(note).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(tech).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(date).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-        }
-
-        private void AddTableCell(Table table, string label, string value, PdfFont font)
-        {
-            table.AddCell(new Cell().Add(new Paragraph(label).SetFont(font).SetBold()));
-            table.AddCell(new Cell().Add(new Paragraph(value).SetFont(font)));
-        }
-
-        private void AddTableHeaderCell(Table table, string text, PdfFont font)
-        {
-            table.AddHeaderCell(new Cell()
-                .Add(new Paragraph(text).SetFont(font).SetBold())
-                .SetBackgroundColor(new DeviceRgb(240, 240, 240))
-                .SetTextAlignment(TextAlignment.CENTER));
-        }
-
-        private void AddLaborDataRow(Table table, string stt, string desc, string code, string type,
-                                   string qty, string unit, string note, string tech, string date, PdfFont font)
-        {
-            table.AddCell(new Cell().Add(new Paragraph(stt).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-            table.AddCell(new Cell().Add(new Paragraph(desc).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(code).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-            table.AddCell(new Cell().Add(new Paragraph(type).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(qty).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-            table.AddCell(new Cell().Add(new Paragraph(unit).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(note).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(tech).SetFont(font)));
-            table.AddCell(new Cell().Add(new Paragraph(date).SetFont(font)).SetTextAlignment(TextAlignment.CENTER));
-        }
-
-        private Paragraph CreateSectionTitle(string title, PdfFont font)
-        {
-            return new Paragraph(title)
-                .SetFont(font)
-                .SetBold()
+            vehicleCell.Add(new Paragraph("1. THÔNG TIN XE")
+                .SetFont(boldFont)
                 .SetFontSize(14)
-                .SetMarginBottom(5);
+                .SetFontColor(primaryColor)
+                .SetMarginBottom(10));
+
+            // Thêm các thông tin xe
+            AddInfoItem(vehicleCell, "Biển số xe:", car.LicensePlateNumber, font, boldFont);
+            AddInfoItem(vehicleCell, "Hãng xe:", car.CarModel, font, boldFont);
+            AddInfoItem(vehicleCell, "Số máy:", car.MachineNumber, font, boldFont);
+            AddInfoItem(vehicleCell, "Số khung:", car.FrameNumber, font, boldFont);
+            AddInfoItem(vehicleCell, "Số km tiếp nhận:", car.NumberOfKilometersTo, font, boldFont);
+            AddInfoItem(vehicleCell, "Ngày xuất xe dự kiến:", "", font, boldFont);
+
+            vehicleCell.Add(new Paragraph("Ghi chú phiếu tiếp nhận:")
+                .SetFont(boldFont)
+                .SetMarginTop(10));
+            vehicleCell.Add(new Paragraph("")
+                .SetFont(font));
+
+            /* ===== CỘT THÔNG TIN KHÁCH HÀNG ===== */
+            var customerCell = new Cell()
+                .SetBorder(Border.NO_BORDER)
+                .SetPaddingLeft(15);
+
+            customerCell.Add(new Paragraph("2. THÔNG TIN KHÁCH HÀNG")
+                .SetFont(boldFont)
+                .SetFontSize(14)
+                .SetFontColor(primaryColor)
+                .SetMarginBottom(10));
+
+            // Thêm các thông tin khách hàng
+            AddInfoItem(customerCell, "Khách hàng:", customer.Name, font, boldFont);
+            AddInfoItem(customerCell, "Số điện thoại:", customer.Phone, font, boldFont);
+            AddInfoItem(customerCell, "Email:", customer.Email, font, boldFont);
+            AddInfoItem(customerCell, "Mã số thuế:", "", font, boldFont);
+            AddInfoItem(customerCell, "Địa chỉ:", customer.Address, font, boldFont);
+            AddInfoItem(customerCell, "Người liên hệ:", customer.ContactPerson, font, boldFont);
+
+            customerCell.Add(new Paragraph("Yêu cầu của khách hàng:")
+                .SetFont(boldFont)
+                .SetMarginTop(10));
+            customerCell.Add(new Paragraph("")
+                .SetFont(font));
+
+            // Thêm 2 cột vào bảng
+            twoColTable.AddCell(vehicleCell);
+            twoColTable.AddCell(customerCell);
+            document.Add(twoColTable);
         }
 
-        private LineSeparator CreateLineSeparator()
+        private void AddInfoItem(Cell cell, string label, string value, PdfFont font, PdfFont boldFont)
         {
-            return new LineSeparator(new SolidLine(1f))
-                .SetMarginTop(10)
-                .SetMarginBottom(10);
+            cell.Add(new Paragraph()
+                .Add(new Text(label).SetFont(boldFont))
+                .Add(new Text(value).SetFont(font))
+                .SetMarginBottom(5));
         }
 
-        private Table CreateSignatureSection(PdfFont font)
+        //private void CreateVehicleInfoSection(Document document, RepairOrderCarInfo car, PdfFont font, PdfFont boldFont, Color primaryColor)
+        //{
+        //    document.Add(new Paragraph("1. Thông tin xe")
+        //        .SetFont(boldFont)
+        //        .SetFontSize(14)
+        //        .SetFontColor(primaryColor)
+        //        .SetMarginBottom(10));
+
+        //    var table = new Table(new float[] { 2, 4, 2, 4 })
+        //        .UseAllAvailableWidth()
+        //        .SetMarginBottom(20);
+
+        //    // Vehicle information rows
+        //    AddTableRow(table, "Biển số xe", car.LicensePlateNumber, "Số VIN", car.FrameNumber, font, boldFont);
+        //    AddTableRow(table, "Hãng xe", car.CarModel, "Loại xe", "", font, boldFont);
+        //    AddTableRow(table, "Số km tiếp nhận", car.NumberOfKilometersTo, "Ngày xuất xe dự kiến", car.MachineNumber, font, boldFont);
+
+        //    // Note row
+        //    table.AddCell(new Cell(1, 4)
+        //        .Add(new Paragraph("Ghi chú phiếu tiếp nhận").SetFont(boldFont))
+        //        .SetPadding(5));
+        //    table.AddCell(new Cell(1, 4)
+        //        .Add(new Paragraph(""))
+        //        .SetPadding(5));
+
+        //    document.Add(table);
+        //}
+
+        //private void CreateCustomerInfoSection(Document document, RepairOrderCustomerInfo customer, PdfFont font, PdfFont boldFont, Color primaryColor)
+        //{
+        //    document.Add(new Paragraph("2. Thông tin khách hàng")
+        //        .SetFont(boldFont)
+        //        .SetFontSize(14)
+        //        .SetFontColor(primaryColor)
+        //        .SetMarginBottom(10));
+
+        //    var table = new Table(new float[] { 2, 4, 2, 4 })
+        //        .UseAllAvailableWidth()
+        //        .SetMarginBottom(20);
+
+        //    // Customer information rows
+        //    AddTableRow(table, "Khách hàng", customer.Name, "Số điện thoại", customer.Phone, font, boldFont);
+        //    AddTableRow(table, "Email", customer.Email, "Mã số thuế", "", font, boldFont);
+        //    AddTableRow(table, "Địa chỉ", customer.Address, "", "", font, boldFont);
+
+        //    // Customer request row
+        //    table.AddCell(new Cell(1, 4)
+        //        .Add(new Paragraph("Yêu cầu của khách hàng").SetFont(boldFont))
+        //        .SetPadding(5));
+        //    table.AddCell(new Cell(1, 4)
+        //        .Add(new Paragraph(""))
+        //        .SetPadding(5));
+
+        //    document.Add(table);
+        //}
+
+        private void CreateRepairLaborsSection(Document document, List<RepairOrderLabor> labors, PdfFont font, PdfFont boldFont, Color primaryColor, Color lightGray)
         {
-            var table = new Table(UnitValue.CreatePercentArray(new float[] { 1, 1, 1 }))
+            document.Add(new Paragraph("3. Nhân công")
+                .SetFont(boldFont)
+                .SetFontSize(14)
+                .SetFontColor(primaryColor)
+                .SetMarginBottom(10));
+
+            var table = new Table(new float[] { 1, 3, 1, 1, 2 })
+                .UseAllAvailableWidth()
+                .SetMarginBottom(20);
+
+            // Table header
+            table.AddHeaderCell(CreateHeaderCell("STT", boldFont, lightGray));
+            table.AddHeaderCell(CreateHeaderCell("Tên hạng mục sửa chữa/ tên nhân công", boldFont, lightGray));
+            table.AddHeaderCell(CreateHeaderCell("Số lượng", boldFont, lightGray));
+            table.AddHeaderCell(CreateHeaderCell("Đơn vị", boldFont, lightGray));
+            table.AddHeaderCell(CreateHeaderCell("Kỹ thuật viên sửa chữa", boldFont, lightGray));
+
+            int itemNumber = 1;
+            foreach (var labor in labors)
+            {
+                // Add note if exists
+                if (!string.IsNullOrEmpty(labor.Note))
+                {
+                    table.AddCell(new Cell(1, 5)
+                        .Add(new Paragraph(labor.Note).SetFont(font))
+                        .SetPadding(5)
+                        .SetBorder(Border.NO_BORDER));
+                }
+
+                // Add main labor item
+                table.AddCell(new Cell()
+                    .Add(new Paragraph(itemNumber.ToString()).SetFont(font))
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetPadding(5));
+                table.AddCell(new Cell()
+                    .Add(new Paragraph(labor.CategoryName).SetFont(font))
+                    .SetPadding(5));
+                table.AddCell(new Cell()
+                    .Add(new Paragraph(labor.Quantity.ToString()).SetFont(font))
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetPadding(5));
+                table.AddCell(new Cell()
+                    .Add(new Paragraph(labor.Unit).SetFont(font))
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetPadding(5));
+                table.AddCell(new Cell()
+                    .Add(new Paragraph(labor.Technician).SetFont(font))
+                    .SetPadding(5));
+
+                // Add child workers if any
+                if (labor.ChildWorker != null && labor.ChildWorker.Count > 0)
+                {
+                    foreach (var child in labor.ChildWorker)
+                    {
+                        table.AddCell(new Cell().SetPadding(5));
+                        table.AddCell(new Cell()
+                            .Add(new Paragraph(child.Product).SetFont(font))
+                            .SetPadding(5));
+                        table.AddCell(new Cell()
+                            .Add(new Paragraph(child.QuantityChild.ToString()).SetFont(font))
+                            .SetTextAlignment(TextAlignment.CENTER)
+                            .SetPadding(5));
+                        table.AddCell(new Cell()
+                            .Add(new Paragraph(child.UnitChild).SetFont(font))
+                            .SetTextAlignment(TextAlignment.CENTER)
+                            .SetPadding(5));
+                        table.AddCell(new Cell().SetPadding(5));
+                    }
+                }
+
+                itemNumber++;
+            }
+
+            document.Add(table);
+        }
+
+        private void CreateFooterSection(Document document, RepairOrderInfo orderInfo, List<RepairOrderLabor> labors, PdfFont font, PdfFont boldFont)
+        {
+            // Tạo bảng ký tên với 4 cột
+            var signatureTable = new Table(new float[] { 1, 1, 1, 1 })
                 .UseAllAvailableWidth()
                 .SetMarginTop(30);
 
-            AddSignatureCell(table, "KHÁCH HÀNG", "(Ký và ghi rõ họ tên)", font);
-            AddSignatureCell(table, "KỸ THUẬT VIÊN", "(Ký và ghi rõ họ tên)", font);
-            AddSignatureCell(table, "QUẢN LÝ", "(Ký, đóng dấu)", font);
+            // Lấy danh sách kỹ thuật viên (lấy từ labor đầu tiên)
+            var technicians = labors.FirstOrDefault()?.Technician ?? "Không xác định";
 
-            return table;
+            // Thêm các ô ký tên
+            signatureTable.AddCell(CreateSignatureCell("KHÁCH HÀNG", "(Ký, ghi rõ họ tên)", font, boldFont));
+            signatureTable.AddCell(CreateSignatureCell("CỐ VẤN DỊCH VỤ", orderInfo.ServiceAdvisor, font, boldFont));
+            signatureTable.AddCell(CreateSignatureCell("QUẢN ĐỐC", orderInfo.Manager, font, boldFont));
+            signatureTable.AddCell(CreateSignatureCell("KỸ THUẬT VIÊN", technicians, font, boldFont));
+
+            document.Add(signatureTable);
         }
 
-        private void AddSignatureCell(Table table, string title, string sub, PdfFont font)
+        private Cell CreateSignatureCell(string title, string content, PdfFont font, PdfFont boldFont)
         {
-            table.AddCell(new Cell()
-                .SetTextAlignment(TextAlignment.CENTER)
-                .SetPaddingTop(40)
+            return new Cell()
+                .Add(new Paragraph(title).SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER))
+                .Add(new Paragraph(content).SetFont(font).SetFontSize(10).SetTextAlignment(TextAlignment.CENTER))
                 .SetBorder(Border.NO_BORDER)
-                .Add(new Paragraph(title).SetFont(font).SetBold())
-                .Add(new Paragraph(sub).SetFont(font).SetFontSize(10)));
+                .SetPaddingTop(20);
         }
 
+        private Cell CreateInfoCell(string text, PdfFont font)
+        {
+            return new Cell()
+                .Add(new Paragraph(text).SetFont(font))
+                .SetBorder(Border.NO_BORDER)
+                .SetPadding(5);
+        }
+
+        private Cell CreateHeaderCell(string text, PdfFont font, Color backgroundColor)
+        {
+            return new Cell()
+                .Add(new Paragraph(text).SetFont(font))
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetBackgroundColor(backgroundColor)
+                .SetPadding(8);
+        }
+
+        private void AddTableRow(Table table, string label1, string value1, string label2, string value2, PdfFont font, PdfFont boldFont)
+        {
+            table.AddCell(new Cell().Add(new Paragraph(label1).SetFont(boldFont)).SetPadding(5));
+            table.AddCell(new Cell().Add(new Paragraph(value1).SetFont(font)).SetPadding(5));
+            table.AddCell(new Cell().Add(new Paragraph(label2).SetFont(boldFont)).SetPadding(5));
+            table.AddCell(new Cell().Add(new Paragraph(value2).SetFont(font)).SetPadding(5));
+        }
+
+        #endregion
     }
 }

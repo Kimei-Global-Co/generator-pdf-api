@@ -1,8 +1,8 @@
 [
   {
-    "ContainingType": "PdfGeneratorApi.Controllers.PdfController",
-    "Method": "CreatePdf",
-    "RelativePath": "api/Pdf/create",
+    "ContainingType": "PdfGeneratorApi.Controllers.PdfQuotationController",
+    "Method": "GenerateQuotationPdf",
+    "RelativePath": "api/PdfQuotation/generate",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
@@ -13,16 +13,6 @@
         "IsRequired": true
       }
     ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "PdfGeneratorApi.Controllers.PdfQuotationController",
-    "Method": "GenerateQuotation",
-    "RelativePath": "api/PdfQuotation/generate",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [],
     "ReturnTypes": []
   },
   {
@@ -43,12 +33,18 @@
   },
   {
     "ContainingType": "PdfGeneratorApi.Controllers.PdfRepairOrderController",
-    "Method": "GeneratePdf",
+    "Method": "GenerateRepairOrderPdf",
     "RelativePath": "api/PdfRepairOrder/generate",
-    "HttpMethod": "GET",
+    "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
-    "Parameters": [],
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "PdfGeneratorApi.Models.RepairOrderRequest",
+        "IsRequired": true
+      }
+    ],
     "ReturnTypes": []
   }
 ]
