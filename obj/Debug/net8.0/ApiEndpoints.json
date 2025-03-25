@@ -29,10 +29,16 @@
     "ContainingType": "PdfGeneratorApi.Controllers.PdfReceiptController",
     "Method": "GenerateReceiptPdf",
     "RelativePath": "api/PdfReceipt/generate",
-    "HttpMethod": "GET",
+    "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
-    "Parameters": [],
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "PdfGeneratorApi.Models.ReceiptRequest",
+        "IsRequired": true
+      }
+    ],
     "ReturnTypes": []
   },
   {

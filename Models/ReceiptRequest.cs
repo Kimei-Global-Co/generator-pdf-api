@@ -43,7 +43,7 @@ namespace PdfGeneratorApi.Models
         public string VehicleCondition { get; set; }
         public List<string> RepairPlan { get; set; }
         public List<string> ReplacementParts { get; set; }
-        public string Notes { get; set; }
+        public string Note { get; set; }
     }
 
     public class ReceiptRequest
