@@ -31,6 +31,12 @@ namespace PdfGeneratorApi.Controllers
         [HttpPost("generate")]
         public IActionResult GenerateQuotationPdf([FromBody] QuotationRequest request)
         {
+            // Kiểm tra request null
+            if (request == null)
+            {
+                return BadRequest(new { success = false, message = "Request body is required" });
+            }
+
             MemoryStream stream = new MemoryStream();
             PdfWriter writer = new PdfWriter(stream);
             writer.SetCloseStream(false);
@@ -47,13 +53,15 @@ namespace PdfGeneratorApi.Controllers
                     Color lightGray = new DeviceRgb(240, 240, 240);
 
                     // 1. Workshop Header
-                    document.Add(new Paragraph(request.QuotationWorkshopInfo.Name.ToUpper())
+                    if (request.QuotationWorkshopInfo != null)
+                    {
+                        document.Add(new Paragraph((request.QuotationWorkshopInfo.Name ?? "").ToUpper())
                         .SetFont(boldFont)
                         .SetFontSize(16)
                         .SetFontColor(primaryColor)
                         .SetMarginBottom(5));
 
-                    var workshopInfo = new List<string>
+                        var workshopInfo = new List<string>
                     {
                         $"Thuộc chuỗi: {request.QuotationWorkshopInfo.Chain}",
                         $"Địa chỉ: {request.QuotationWorkshopInfo.Address}",
@@ -62,20 +70,23 @@ namespace PdfGeneratorApi.Controllers
                         $"Số tài khoản: {request.QuotationWorkshopInfo.BankInfo}"
                     };
 
-                    foreach (var info in workshopInfo)
-                    {
-                        document.Add(new Paragraph(info)
-                            .SetFont(font)
-                            .SetFontSize(10)
-                            .SetMarginBottom(3));
+                        foreach (var info in workshopInfo)
+                        {
+                            document.Add(new Paragraph(info)
+                                .SetFont(font)
+                                .SetFontSize(10)
+                                .SetMarginBottom(3));
+                        }
                     }
+
+                        
 
                     //document.Add(new LineSeparator(new SolidBorder(1f))
                     //    .SetMarginTop(10)
                     //    .SetMarginBottom(15));
 
                     // 2. Quotation Title
-                    document.Add(new Paragraph(request.QuotationInfo.Name)
+                    document.Add(new Paragraph(request.QuotationInfo?.Name ?? "")
                         .SetFont(boldFont)
                         .SetFontSize(18)
                         .SetFontColor(primaryColor)
@@ -88,9 +99,9 @@ namespace PdfGeneratorApi.Controllers
                         .SetMarginBottom(20)
                         .SetBorder(Border.NO_BORDER);
 
-                    infoTable.AddCell(CreateCell($"Mã phiếu: {request.QuotationInfo.ReceiptCode}", font));
-                    infoTable.AddCell(CreateCell($"Ngày nhận xe: {request.QuotationInfo.CarPickUpDate}", font));
-                    infoTable.AddCell(CreateCell($"Ngày báo giá: {request.QuotationInfo.QuotationDate}", font));
+                    infoTable.AddCell(CreateCell($"Mã phiếu: {(request?.QuotationInfo?.ReceiptCode)}", font));
+                    infoTable.AddCell(CreateCell($"Ngày nhận xe: {request?.QuotationInfo?.CarPickUpDate}", font));
+                    infoTable.AddCell(CreateCell($"Ngày báo giá: {request?.QuotationInfo?.QuotationDate}", font));
 
                     document.Add(infoTable);
 
@@ -109,11 +120,11 @@ namespace PdfGeneratorApi.Controllers
                             .SetFontSize(14)
                             .SetFontColor(primaryColor)
                             .SetMarginBottom(10))
-                        .Add(CreateInfoRow("Biển số:", request.QuotationCarInfo.LicensePlateNumber, font, boldFont))
-                        .Add(CreateInfoRow("Số máy:", request.QuotationCarInfo.MachineNumber, font, boldFont))
-                        .Add(CreateInfoRow("Số khung:", request.QuotationCarInfo.FrameNumber, font, boldFont))
-                        .Add(CreateInfoRow("Model:", request.QuotationCarInfo.CarModel, font, boldFont))
-                        .Add(CreateInfoRow("Số km:", request.QuotationCarInfo.NumberOfKilometersTo, font, boldFont));
+                        .Add(CreateInfoRow("Biển số:", request?.QuotationCarInfo?.LicensePlateNumber ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Số máy:", request?.QuotationCarInfo?.MachineNumber ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Số khung:", request?.QuotationCarInfo?.FrameNumber ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Model:", request?.QuotationCarInfo?.CarModel ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Số km:", request?.QuotationCarInfo?.NumberOfKilometersTo ?? "", font, boldFont));
 
                     // Customer Info
                     var customerCell = new Cell()
@@ -124,11 +135,11 @@ namespace PdfGeneratorApi.Controllers
                             .SetFontSize(14)
                             .SetFontColor(primaryColor)
                             .SetMarginBottom(10))
-                        .Add(CreateInfoRow("Khách hàng:", request.QuotationCustomerInfo.Name, font, boldFont))
-                        .Add(CreateInfoRow("Điện thoại:", request.QuotationCustomerInfo.Phone, font, boldFont))
-                        .Add(CreateInfoRow("Email:", request.QuotationCustomerInfo.Email, font, boldFont))
-                        .Add(CreateInfoRow("Địa chỉ:", request.QuotationCustomerInfo.Address, font, boldFont))
-                        .Add(CreateInfoRow("Người liên hệ:", request.QuotationCustomerInfo.ContactPerson, font, boldFont))
+                        .Add(CreateInfoRow("Khách hàng:", request?.QuotationCustomerInfo?.Name ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Điện thoại:", request?.QuotationCustomerInfo?.Phone ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Email:", request?.QuotationCustomerInfo?.Email ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Địa chỉ:", request?.QuotationCustomerInfo?.Address ?? "", font, boldFont))
+                        .Add(CreateInfoRow("Người liên hệ:", request?.QuotationCustomerInfo?.ContactPerson ?? "", font, boldFont))
                         .Add(CreateInfoRow("Là chủ xe:", request.QuotationCustomerInfo.CarOwner ? "Có" : "Không", font, boldFont));
 
                     twoColTable.AddCell(vehicleCell);
@@ -158,43 +169,58 @@ namespace PdfGeneratorApi.Controllers
                     }
 
                     // Table Rows
-                    foreach (var item in request.Quote)
+
+                    if (request.Quote != null)
                     {
-                        quoteTable.AddCell(CreateCell(item.Product, font).SetPadding(5));
-                        quoteTable.AddCell(CreateCell(item.Unit, font).SetTextAlignment(TextAlignment.CENTER));
-                        quoteTable.AddCell(CreateCell(item.Quantity.ToString(), font).SetTextAlignment(TextAlignment.CENTER));
-                        quoteTable.AddCell(CreateCell(item.UnitPrice.ToString("N0") + " đ", font).SetTextAlignment(TextAlignment.RIGHT));
-                        quoteTable.AddCell(CreateCell(item.Money.ToString("N0") + " đ", font).SetTextAlignment(TextAlignment.RIGHT));
-                        quoteTable.AddCell(CreateCell(item.Discount.ToString("N0") + " đ", font).SetTextAlignment(TextAlignment.RIGHT));
-                        quoteTable.AddCell(CreateCell(item.Tax + "%", font).SetTextAlignment(TextAlignment.CENTER));
+                        foreach (var item in request.Quote)
+                        {
+                            // Tính toán lại thành tiền (Money) = Số lượng * Đơn giá
+                            decimal money = (item.Quantity ?? 0) * (item.UnitPrice ?? 0);
+                            decimal discountAmount = item.Discount ?? 0;
+                            decimal taxAmount = money * (item.Tax ?? 0) / 100;
+
+                            quoteTable.AddCell(CreateCell(item.Product, font).SetPadding(5));
+                            quoteTable.AddCell(CreateCell(item.Unit, font).SetTextAlignment(TextAlignment.CENTER));
+                            quoteTable.AddCell(CreateCell(item.Quantity?.ToString(), font).SetTextAlignment(TextAlignment.CENTER));
+                            quoteTable.AddCell(CreateCell(item.UnitPrice?.ToString("N0") + " đ", font).SetTextAlignment(TextAlignment.RIGHT));
+                            quoteTable.AddCell(CreateCell(money.ToString("N0") + " đ", font).SetTextAlignment(TextAlignment.RIGHT));
+                            quoteTable.AddCell(CreateCell(discountAmount.ToString("N0") + " đ", font).SetTextAlignment(TextAlignment.RIGHT));
+                            quoteTable.AddCell(CreateCell(item.Tax + "%", font).SetTextAlignment(TextAlignment.CENTER));
+                        }
+
+                        document.Add(quoteTable);
+
+                        // 6. Summary - Tính toán lại tổng các giá trị
+                        decimal totalAmount = request.Quote
+                            .Sum(x => (x.Quantity ?? 0) * (x.UnitPrice ?? 0));
+
+                        decimal totalDiscount = request.Quote
+                            .Sum(x => x.Discount ?? 0);
+
+                        decimal totalTax = request.Quote
+                            .Sum(x => (x.Quantity ?? 0) * (x.UnitPrice ?? 0) * (x.Tax ?? 0) / 100);
+
+                        decimal finalAmount = totalAmount - totalDiscount + totalTax;
+
+                        var summaryTable = new Table(new float[] { 1, 1 })
+                            .UseAllAvailableWidth()
+                            .SetMarginBottom(20)
+                            .SetBorder(Border.NO_BORDER);
+
+                        summaryTable.AddCell(new Cell().SetBorder(Border.NO_BORDER));
+
+                        var summaryCell = new Cell()
+                            .SetBorder(Border.NO_BORDER)
+                            .SetTextAlignment(TextAlignment.RIGHT)
+                            .Add(new Paragraph($"Số lượng: {request.Quote.Count}").SetFont(font).SetMarginBottom(5))
+                            .Add(new Paragraph($"Tổng cộng: {totalAmount:N0} VND").SetFont(font).SetMarginBottom(5))
+                            .Add(new Paragraph($"Chiết khấu: {totalDiscount:N0} VND").SetFont(font).SetMarginBottom(5))
+                            .Add(new Paragraph($"Thuế VAT: {totalTax:N0} VND").SetFont(font).SetMarginBottom(5))
+                            .Add(new Paragraph($"Tổng thanh toán: {finalAmount:N0} VND").SetFont(boldFont));
+
+                        summaryTable.AddCell(summaryCell);
+                        document.Add(summaryTable);
                     }
-
-                    document.Add(quoteTable);
-
-                    // 6. Summary
-                    decimal totalAmount = request.Quote.Sum(x => x.Money);
-                    decimal totalDiscount = request.Quote.Sum(x => x.Discount);
-                    decimal totalTax = request.Quote.Sum(x => (x.Money * x.Tax / 100));
-                    decimal finalAmount = totalAmount - totalDiscount + totalTax;
-
-                    var summaryTable = new Table(new float[] { 1, 1 })
-                        .UseAllAvailableWidth()
-                        .SetMarginBottom(20)
-                        .SetBorder(Border.NO_BORDER);
-
-                    summaryTable.AddCell(new Cell().SetBorder(Border.NO_BORDER));
-
-                    var summaryCell = new Cell()
-                        .SetBorder(Border.NO_BORDER)
-                        .SetTextAlignment(TextAlignment.RIGHT)
-                        .Add(new Paragraph($"Số lượng: {request.Quote.Count}").SetFont(font).SetMarginBottom(5))
-                        .Add(new Paragraph($"Tổng cộng: {totalAmount:N0} VND").SetFont(font).SetMarginBottom(5))
-                        .Add(new Paragraph($"Chiết khấu: {totalDiscount:N0} VND").SetFont(font).SetMarginBottom(5))
-                        .Add(new Paragraph($"Thuế VAT: {totalTax:N0} VND").SetFont(font).SetMarginBottom(5))
-                        .Add(new Paragraph($"Tổng thanh toán: {finalAmount:N0} VND").SetFont(boldFont));
-
-                    summaryTable.AddCell(summaryCell);
-                    document.Add(summaryTable);
 
                     // 7. Terms and Conditions
                     document.Add(new Paragraph("ĐIỀU KHOẢN")
@@ -235,7 +261,7 @@ namespace PdfGeneratorApi.Controllers
                 }
 
                 stream.Seek(0, SeekOrigin.Begin);
-                return File(stream, "application/pdf", $"BaoGia_{request.QuotationInfo.ReceiptCode}.pdf");
+                return File(stream, "application/pdf", $"BaoGia_{request?.QuotationInfo?.ReceiptCode}.pdf");
             }
             catch (Exception ex)
             {
