@@ -14,5 +14,35 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PdfGeneratorApi.Controllers.PdfQuotationController",
+    "Method": "GenerateQuotation",
+    "RelativePath": "api/PdfQuotation/generate",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PdfGeneratorApi.Controllers.PdfReceiptController",
+    "Method": "GenerateReceiptPdf",
+    "RelativePath": "api/PdfReceipt/generate",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PdfGeneratorApi.Controllers.PdfRepairOrderController",
+    "Method": "GeneratePdf",
+    "RelativePath": "api/PdfRepairOrder/generate",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
   }
 ]

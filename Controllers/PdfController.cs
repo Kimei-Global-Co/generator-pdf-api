@@ -22,7 +22,7 @@ namespace PdfGeneratorApi.Controllers
         public IActionResult CreatePdf([FromBody] QuotationRequest request)
         {
             // Sử dụng MemoryStream để lưu trữ PDF trong bộ nhớ
-            using (MemoryStream memoryStream = new MemoryStream())
+            using (MemoryStream memoryStream = new MemoryStream()) 
             {
                 // Tạo file PDF trong bộ nhớ
                 PdfWriter writer = new PdfWriter(memoryStream);
@@ -31,7 +31,7 @@ namespace PdfGeneratorApi.Controllers
 
                 // Thiết lập font hỗ trợ tiếng Việt
                 string fontPath = Path.Combine(AppContext.BaseDirectory, "assets", "NotoSans-Regular.ttf");
-                PdfFont font = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, true);
+                PdfFont font = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H);
                 document.SetFont(font);
 
                 // Phần 1: Logo và Thông Tin Công Ty

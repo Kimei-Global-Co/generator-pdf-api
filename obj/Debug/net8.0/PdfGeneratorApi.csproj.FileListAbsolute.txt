@@ -69,8 +69,6 @@ C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\run
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\runtimes\osx-x64\native\libQuestPdfSkia.dylib
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\runtimes\win-x64\native\QuestPdfSkia.dll
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\runtimes\win-x86\native\QuestPdfSkia.dll
-C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\Common.Logging.dll
-C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\Common.Logging.Core.dll
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\BouncyCastle.Crypto.dll
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\assets\NotoSans-Regular.ttf
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\publish\web.config
@@ -79,3 +77,5 @@ C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\pub
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\publish\PdfGeneratorApi.deps.json
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\publish\PdfGeneratorApi.runtimeconfig.json
 C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\obj\Debug\net8.0\PdfGeneratorApi.sourcelink.json
+C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\itext.commons.dll
+C:\Users\ADMIN\source\repos\PdfGeneratorApi\PdfGeneratorApi\bin\Debug\net8.0\assets\logo.png
